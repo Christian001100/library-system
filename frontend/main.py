@@ -1,5 +1,5 @@
 import tkinter as tk
-from frontend.Sidebar import Sidebar
+from Sidebar import Sidebar
 from login import LoginScreen
 
 def main():
