@@ -42,3 +42,24 @@ def get_lending_records():
     lending_records = cursor.fetchall()
     cursor.close()
     return lending_records
+
+
+def get_overdue_books():
+    """Fetch all overdue lending records where books are not returned."""
+    cursor = mysql.connection.cursor()
+    query = """
+        SELECT 
+            Lending.LendID,
+            Books.Title AS BookTitle,
+            Members.Name AS MemberName,
+            Lending.IssueDate,
+            Lending.DueDate
+        FROM Lending
+        JOIN Books ON Lending.BookID = Books.BookID
+        JOIN Members ON Lending.MemberID = Members.MemberID
+        WHERE Lending.DueDate < CURDATE() AND Lending.ReturnDate IS NULL
+    """
+    cursor.execute(query)
+    overdue_books = cursor.fetchall()
+    cursor.close()
+    return overdue_books

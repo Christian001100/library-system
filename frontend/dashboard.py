@@ -25,11 +25,11 @@ class DashboardScreen:
         self.total_members_label.grid(row=1, column=1, padx=10, pady=5)
 
         tk.Label(metrics_frame, text="Issued Books:", font=("Arial", 12)).grid(row=2, column=0, padx=10, pady=5, sticky="w")
-        self.issued_books_label = tk.Label(metrics_frame, text="0", font=("Arial", 12, "bold"))
+        self.issued_books_label = tk.Label(metrics_frame, text="Loading...", font=("Arial", 12, "bold"))
         self.issued_books_label.grid(row=2, column=1, padx=10, pady=5)
 
         tk.Label(metrics_frame, text="Overdue Returns:", font=("Arial", 12)).grid(row=3, column=0, padx=10, pady=5, sticky="w")
-        self.overdue_returns_label = tk.Label(metrics_frame, text="0", font=("Arial", 12, "bold"))
+        self.overdue_returns_label = tk.Label(metrics_frame, text="Loading...", font=("Arial", 12, "bold"))
         self.overdue_returns_label.grid(row=3, column=1, padx=10, pady=5)
 
         # Quick Actions Section
@@ -39,8 +39,6 @@ class DashboardScreen:
         tk.Button(quick_actions_frame, text="Add Book", command=self.add_book_action, bg="#0078d7", fg="white", width=15).grid(row=0, column=0, padx=10, pady=5)
         tk.Button(quick_actions_frame, text="Add Member", command=self.add_member_action, bg="#0078d7", fg="white", width=15).grid(row=0, column=1, padx=10, pady=5)
         tk.Button(quick_actions_frame, text="View Records", command=self.view_records_action, bg="#0078d7", fg="white", width=15).grid(row=0, column=2, padx=10, pady=5)
-
-        # Refresh Button
         tk.Button(quick_actions_frame, text="Refresh", command=self.refresh_data, bg="#4CAF50", fg="white", width=15).grid(row=0, column=3, padx=10, pady=5)
 
         # Recent Activity Placeholder
@@ -64,9 +62,11 @@ class DashboardScreen:
         messagebox.showinfo("View Records", "View Records functionality is not implemented yet!")
 
     def refresh_data(self):
-        """Refresh all data (books, members, etc.)"""
+        """Refresh all data (books, members, issued books, overdue returns)"""
         self.fetch_books_count()
         self.fetch_members_count()
+        self.fetch_issued_books_count()
+        self.fetch_overdue_returns_count()  # NEW
 
     def fetch_books_count(self):
         """Fetch and update the total number of books"""
@@ -74,8 +74,7 @@ class DashboardScreen:
             response = requests.get("http://127.0.0.1:5000/api/books/all")
             if response.status_code == 200:
                 books = response.json()
-                book_count = len(books)
-                self.total_books_label.config(text=str(book_count))
+                self.total_books_label.config(text=str(len(books)))
             else:
                 self.total_books_label.config(text="Error fetching")
         except requests.exceptions.RequestException as e:
@@ -88,10 +87,36 @@ class DashboardScreen:
             response = requests.get("http://127.0.0.1:5000/api/members/all")
             if response.status_code == 200:
                 members = response.json()
-                member_count = len(members)
-                self.total_members_label.config(text=str(member_count))
+                self.total_members_label.config(text=str(len(members)))
             else:
                 self.total_members_label.config(text="Error fetching")
         except requests.exceptions.RequestException as e:
             print("Error fetching members:", e)
             self.total_members_label.config(text="Server error")
+
+    def fetch_issued_books_count(self):
+        """Fetch and update the total number of issued books"""
+        try:
+            response = requests.get("http://127.0.0.1:5000/api/lending/all")
+            if response.status_code == 200:
+                lending_records = response.json()
+                issued_books_count = sum(1 for record in lending_records if record[5] is None)
+                self.issued_books_label.config(text=str(issued_books_count))
+            else:
+                self.issued_books_label.config(text="Error fetching")
+        except requests.exceptions.RequestException as e:
+            print("Error fetching lending records:", e)
+            self.issued_books_label.config(text="Server error")
+
+    def fetch_overdue_returns_count(self):
+        """Fetch and update the total number of overdue returns"""
+        try:
+            response = requests.get("http://127.0.0.1:5000/api/lending/overdue")
+            if response.status_code == 200:
+                overdue_books = response.json()
+                self.overdue_returns_label.config(text=str(len(overdue_books)))
+            else:
+                self.overdue_returns_label.config(text="Error fetching")
+        except requests.exceptions.RequestException as e:
+            print("Error fetching overdue returns:", e)
+            self.overdue_returns_label.config(text="Server error")

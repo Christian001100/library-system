@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
-from models.lending import lend_book, return_book, get_lending_records
+from models.lending import lend_book, return_book, get_lending_records, get_overdue_books
+ 
 
 lending_routes = Blueprint('lending', __name__)
 
@@ -21,3 +22,10 @@ def return_lending(lend_id):
     """Mark a book as returned."""
     return_book(lend_id)
     return jsonify({"message": "Book returned successfully!"})
+
+
+@lending_routes.route('/lending/overdue', methods=['GET'])
+def fetch_overdue_books():
+    """Fetch all overdue lending records."""
+    overdue_books = get_overdue_books()
+    return jsonify(overdue_books)
