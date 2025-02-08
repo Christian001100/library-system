@@ -1,7 +1,7 @@
 import tkinter as tk
 from login import LoginScreen
 from dashboard import DashboardScreen
-from members import MembersScreen
+from members import MemberScreen
 from books import BooksScreen  # ✅ Import BooksScreen
 from lendings import LendingsScreen
 
@@ -17,7 +17,7 @@ class Sidebar:
         # Add navigation buttons
         self.add_nav_button("Dashboard", self.show_dashboard)  # ✅ Fixed
        
-        self.add_nav_button("Members", MembersScreen)
+        self.add_nav_button("Members", MemberScreen)
         self.add_nav_button("Books", BooksScreen)  # ✅ Use BooksScreen
         self.add_nav_button("Lendings", LendingsScreen)
 
