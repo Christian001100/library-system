@@ -41,16 +41,29 @@ def delete_member(member_id):
     return rows_affected > 0 
 
 def get_borrowing_history(member_id):
-    """Fetch borrowing history of a member."""
-    cursor = mysql.connection.cursor(dictionary=True)  # Return data as dictionary
+    connection = mysql.connection  # Use the existing database connection
+    cursor = connection.cursor()
+
     query = """
-        SELECT Books.Title AS BookTitle, Lendings.IssueDate, Lendings.DueDate, Lendings.ReturnDate
-        FROM Lendings
-        JOIN Books ON Lendings.BookID = Books.BookID
-        WHERE Lendings.MemberID = %s
-        ORDER BY Lendings.IssueDate DESC
+    SELECT 
+        Books.Title AS BookTitle, 
+        Lending.IssueDate, 
+        Lending.DueDate, 
+        Lending.ReturnDate 
+    FROM Lending 
+    JOIN Books ON Lending.BookID = Books.BookID 
+    WHERE Lending.MemberID = %s
+    ORDER BY Lending.IssueDate DESC;
     """
+
     cursor.execute(query, (member_id,))
-    history = cursor.fetchall()
+    
+    # Fetch column names
+    columns = [col[0] for col in cursor.description]
+    
+    # Convert query result into a list of dictionaries
+    history = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
     cursor.close()
+
     return history

@@ -184,29 +184,32 @@ class MemberScreen:
             messagebox.showwarning("No Selection", "Please select a member to view their borrowing history.")
             return
 
-        member_id, name, _, _ = self.tree.item(selected, "values")
+        member_id = self.tree.item(selected, "values")[0]  # Get the selected member's ID
+        member_name = self.tree.item(selected, "values")[1]  # Get the selected member's name
 
-        # Fetch borrowing history from the backend (assuming an endpoint exists)
+        # Fetch borrowing history from the backend
         try:
             response = requests.get(f"http://127.0.0.1:5000/api/members/{member_id}/borrowing-history")
             if response.status_code == 200:
                 history = response.json()
                 # Open a new window to display borrowing history
                 history_window = tk.Toplevel(self.parent)
-                history_window.title(f"Borrowing History - {name}")
+                history_window.title(f"Borrowing History - {member_name}")
 
                 # Display history in a Treeview
-                history_tree = ttk.Treeview(history_window, columns=("Book", "Borrowed Date", "Returned Date"), show="headings")
-                history_tree.heading("Book", text="Book")
-                history_tree.heading("Borrowed Date", text="Borrowed Date")
-                history_tree.heading("Returned Date", text="Returned Date")
+                history_tree = ttk.Treeview(history_window, columns=("BookTitle", "IssueDate", "DueDate", "ReturnDate"), show="headings")
+                history_tree.heading("BookTitle", text="Book Title")
+                history_tree.heading("IssueDate", text="Issue Date")
+                history_tree.heading("DueDate", text="Due Date")
+                history_tree.heading("ReturnDate", text="Return Date")
                 history_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
                 for record in history:
                     history_tree.insert("", tk.END, values=(
-                        record["book"],
-                        record["borrowed_date"],
-                        record["returned_date"]
+                        record["BookTitle"],  # Updated key
+                        record["IssueDate"],
+                        record["DueDate"],
+                        record["ReturnDate"]
                     ))
             else:
                 messagebox.showerror("Error", "Failed to fetch borrowing history.")

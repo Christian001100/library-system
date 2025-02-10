@@ -38,5 +38,13 @@ def delete_member_route(member_id):
     
 @member_routes.route('/members/<int:member_id>/borrowing-history', methods=['GET'])
 def fetch_borrowing_history(member_id):
-    history = get_borrowing_history(member_id)
-    return jsonify(history)
+    """
+    Fetch borrowing history for a specific member.
+    :param member_id: ID of the member.
+    :return: JSON list of borrowing records.
+    """
+    borrowing_history = get_borrowing_history(member_id)
+    if borrowing_history:
+        return jsonify(borrowing_history)
+    else:
+        return jsonify({"error": "No borrowing history found"}), 404

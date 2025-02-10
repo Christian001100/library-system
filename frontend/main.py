@@ -1,7 +1,8 @@
 from tkinter import Tk, Frame
 from Sidebar import Sidebar
 from login import LoginScreen
-from dashboard import DashboardScreen  # Import the DashboardScreen
+from dashboard import DashboardScreen
+from members import MemberScreen  # Import the DashboardScreen
 
 def show_dashboard(content_frame):
     # Initialize the DashboardScreen in the content frame

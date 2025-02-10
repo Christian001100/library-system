@@ -63,3 +63,35 @@ def get_overdue_books():
     overdue_books = cursor.fetchall()
     cursor.close()
     return overdue_books
+def get_borrowing_history(member_id):
+    """
+    Fetch borrowing history for a specific member.
+    :param member_id: ID of the member.
+    :return: List of borrowing records (each record is a dictionary).
+    """
+    try:
+        # Example: Query the lending table
+        # Replace this with your actual database logic
+        query = """
+            SELECT LendID, BookID, IssueDate, DueDate, ReturnDate
+            FROM lending
+            WHERE MemberID = %s
+        """
+        
+        cursor.execute(query, (member_id,))
+        records = cursor.fetchall()
+
+        # Convert records to a list of dictionaries
+        borrowing_history = []
+        for record in records:
+            borrowing_history.append({
+                "LendID": record[0],
+                "BookID": record[1],
+                "IssueDate": record[2].strftime("%Y-%m-%d") if record[2] else None,
+                "DueDate": record[3].strftime("%Y-%m-%d") if record[3] else None,
+                "ReturnDate": record[4].strftime("%Y-%m-%d") if record[4] else None
+            })
+        return borrowing_history
+    except Exception as e:
+        print(f"Error fetching borrowing history: {e}")
+        return None
