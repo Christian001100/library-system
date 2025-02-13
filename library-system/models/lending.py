@@ -1,28 +1,89 @@
 from db_config import mysql
+from datetime import datetime, timedelta
 
-def lend_book(book_id, member_id, due_date):
-    """Insert a new lending record into the database."""
+# Lend Book Function (borrow book logic)
+def lend_book(book_id, member_id, is_class_monitor=False):
+    """Insert a new lending record into the database and check availability."""
     cursor = mysql.connection.cursor()
-    query = """
-        INSERT INTO Lending (BookID, MemberID, DueDate)
-        VALUES (%s, %s, %s)
-    """
-    cursor.execute(query, (book_id, member_id, due_date))
-    mysql.connection.commit()
-    cursor.close()
+    
+    # Check if there are available copies
+    query = "SELECT Copies FROM Books WHERE BookID = %s"
+    cursor.execute(query, (book_id,))
+    result = cursor.fetchone()
+    
+    if result and result[0] > 0:  # There are available copies
+        # Determine borrowing limit based on whether it's a student or class monitor
+        limit = 5 if not is_class_monitor else 10  # 5 for students, 10 for class monitors
+        
+        # Check if the borrower has exceeded their limit
+        query = "SELECT COUNT(*) FROM Lending WHERE MemberID = %s AND ReturnDate IS NULL"
+        cursor.execute(query, (member_id,))
+        borrowed_count = cursor.fetchone()[0]
+        
+        if borrowed_count < limit:
+            # Calculate due date (14 days from today)
+            due_date = datetime.now() + timedelta(days=14)
+            
+            # Update the number of available copies
+            query = "UPDATE Books SET Copies = Copies - 1 WHERE BookID = %s"
+            cursor.execute(query, (book_id,))
+            
+            # Insert lending record into Lending table
+            query = """
+                INSERT INTO Lending (BookID, MemberID, DueDate)
+                VALUES (%s, %s, %s)
+            """
+            cursor.execute(query, (book_id, member_id, due_date))
+            
+            # Commit changes
+            mysql.connection.commit()
+            cursor.close()
+            return {"message": "Book lent successfully!"}
+        else:
+            cursor.close()
+            return {"message": f"Limit exceeded. You can only borrow {limit} books."}
+    else:
+        cursor.close()
+        return {"message": "No available copies."}
 
+# Return Book Function (return book logic)
 def return_book(lend_id):
-    """Update the lending record to set the ReturnDate."""
+    """Update the lending record to set the ReturnDate and handle overdue fines."""
     cursor = mysql.connection.cursor()
-    query = """
-        UPDATE Lending
-        SET ReturnDate = CURDATE()
-        WHERE LendID = %s
-    """
+    
+    # Check if the lending record exists and if it was borrowed
+    query = "SELECT BookID, DueDate FROM Lending WHERE LendID = %s AND ReturnDate IS NULL"
     cursor.execute(query, (lend_id,))
-    mysql.connection.commit()
-    cursor.close()
+    result = cursor.fetchone()
+    
+    if result:
+        book_id, due_date = result
+        return_date = datetime.now()
+        overdue_days = (return_date - due_date).days
+        
+        # Calculate fine for late return
+        fine = 0
+        if overdue_days > 0:  # Fine for overdue
+            fine = overdue_days * 1  # $1 fine for each day overdue
+        
+        # Update the Lending table with the return date
+        query = "UPDATE Lending SET ReturnDate = %s WHERE LendID = %s"
+        cursor.execute(query, (return_date, lend_id))
+        
+        # Update the Books table (increase available copies)
+        query = "UPDATE Books SET Copies = Copies + 1 WHERE BookID = %s"
+        cursor.execute(query, (book_id,))
+        
+        # Commit changes
+        mysql.connection.commit()
+        cursor.close()
+        
+        return {"message": "Book returned successfully!", "fine": fine}
+    else:
+        cursor.close()
+        return {"message": "This lending record does not exist."}
 
+# Fetch Lending Records (fetch details of lent books, including members and due dates)
 def get_lending_records():
     """Fetch all lending records, including member and book details."""
     cursor = mysql.connection.cursor()
@@ -43,7 +104,7 @@ def get_lending_records():
     cursor.close()
     return lending_records
 
-
+# Get Overdue Books (fetch lending records where books are overdue)
 def get_overdue_books():
     """Fetch all overdue lending records where books are not returned."""
     cursor = mysql.connection.cursor()
@@ -63,35 +124,28 @@ def get_overdue_books():
     overdue_books = cursor.fetchall()
     cursor.close()
     return overdue_books
-def get_borrowing_history(member_id):
-    """
-    Fetch borrowing history for a specific member.
-    :param member_id: ID of the member.
-    :return: List of borrowing records (each record is a dictionary).
-    """
-    try:
-        # Example: Query the lending table
-        # Replace this with your actual database logic
-        query = """
-            SELECT LendID, BookID, IssueDate, DueDate, ReturnDate
-            FROM lending
-            WHERE MemberID = %s
-        """
-        
-        cursor.execute(query, (member_id,))
-        records = cursor.fetchall()
 
-        # Convert records to a list of dictionaries
-        borrowing_history = []
-        for record in records:
-            borrowing_history.append({
-                "LendID": record[0],
-                "BookID": record[1],
-                "IssueDate": record[2].strftime("%Y-%m-%d") if record[2] else None,
-                "DueDate": record[3].strftime("%Y-%m-%d") if record[3] else None,
-                "ReturnDate": record[4].strftime("%Y-%m-%d") if record[4] else None
-            })
-        return borrowing_history
-    except Exception as e:
-        print(f"Error fetching borrowing history: {e}")
-        return None
+# Get Borrowing History (fetch borrowing history for a specific member)
+def get_borrowing_history(member_id):
+    """Fetch borrowing history for a specific member."""
+    cursor = mysql.connection.cursor()
+    query = """
+        SELECT LendID, BookID, IssueDate, DueDate, ReturnDate
+        FROM Lending
+        WHERE MemberID = %s
+    """
+    cursor.execute(query, (member_id,))
+    records = cursor.fetchall()
+
+    # Convert records to a list of dictionaries
+    borrowing_history = []
+    for record in records:
+        borrowing_history.append({
+            "LendID": record[0],
+            "BookID": record[1],
+            "IssueDate": record[2].strftime("%Y-%m-%d") if record[2] else None,
+            "DueDate": record[3].strftime("%Y-%m-%d") if record[3] else None,
+            "ReturnDate": record[4].strftime("%Y-%m-%d") if record[4] else None
+        })
+    cursor.close()
+    return borrowing_history
