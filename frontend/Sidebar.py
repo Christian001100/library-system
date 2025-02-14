@@ -2,7 +2,7 @@ import tkinter as tk
 from login import LoginScreen
 from dashboard import DashboardScreen
 from members import MemberScreen
-from books import BooksScreen  # ✅ Import BooksScreen
+from books import BookScreen  # ✅ Import BooksScreen
 from lendings import LendingsScreen
 
 class Sidebar:
@@ -18,7 +18,8 @@ class Sidebar:
         self.add_nav_button("Dashboard", self.show_dashboard)  # ✅ Fixed
        
         self.add_nav_button("Members", MemberScreen)
-        self.add_nav_button("Books", BooksScreen)  # ✅ Use BooksScreen
+        self.add_nav_button("Books", BookScreen)  # ✅ Use BookScreen
+
         self.add_nav_button("Lendings", LendingsScreen)
 
     def add_nav_button(self, text, screen_class):

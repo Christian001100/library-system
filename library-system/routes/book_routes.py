@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request
-from models.books import add_book, get_books, advanced_search_books
+from models.books import add_book, get_books, advanced_search_books, update_book, delete_book
+
+
 
 book_routes = Blueprint('books', __name__)
 
@@ -11,8 +13,16 @@ def fetch_books():
 @book_routes.route('/books/create', methods=['POST'])
 def create_book():
     data = request.json
-    add_book(data['title'], data['author'], data['genre'], data['isbn'], data['copies'])
-    return jsonify({"message": "Book added successfully!"})
+    # Use get() with default values for optional fields
+    add_book(
+        data.get('title'),
+        data.get('author'),
+        data.get('genre', 'Unknown'),
+        data.get('isbn'),
+        data.get('copies', 1)
+    )
+    return jsonify({"message": "Book added successfully!"}), 201
+
 
 @book_routes.route('/books/search', methods=['GET'])
 def search_books():
@@ -30,14 +40,47 @@ def search_books():
     book_list = []
     for book in books:
         book_list.append({
-            "BookID": book[0],
-            "Title": book[1],
-            "Author": book[2],
-            "Genre": book[3],
-            "ISBN": book[4],
-            "Copies": book[5],
-            "Popularity": book[6]
+            "id": book[0],
+            "title": book[1],
+            "author": book[2],
+            "genre": book[3],
+            "isbn": book[4],
+            "copies": book[5],
+            "availability": "Available" if book[5] > 0 else "Borrowed",
+            "popularity": book[6]
         })
+
 
     return jsonify(book_list)
 
+@book_routes.route('/books/update/<int:book_id>', methods=['PUT'])
+def update_book_route(book_id):
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+        
+    try:
+        success = update_book(
+            book_id,
+            title=data.get('title'),
+            author=data.get('author'),
+            genre=data.get('genre'),
+            isbn=data.get('isbn'),
+            copies=data.get('copies')
+        )
+        if success:
+            return jsonify({"message": "Book updated successfully"}), 200
+        return jsonify({"error": "No fields to update"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@book_routes.route('/books/delete/<int:book_id>', methods=['DELETE'])
+def delete_book_route(book_id):
+    """Delete a book by its ID"""
+    try:
+        success = delete_book(book_id)
+        if success:
+            return jsonify({"message": "Book deleted successfully"}), 200
+        return jsonify({"error": "Failed to delete book"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
