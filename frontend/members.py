@@ -35,6 +35,8 @@ class MemberScreen:
         tk.Button(button_frame, text="Add Member", command=self.add_member).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Update Member", command=self.update_member).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Delete Member", command=self.delete_member).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="Refresh", command=self.load_members).pack(side=tk.LEFT, padx=5)
+
         tk.Button(button_frame, text="View Borrowing History", command=self.view_borrowing_history).pack(side=tk.LEFT, padx=5)
 
         # Load initial member data

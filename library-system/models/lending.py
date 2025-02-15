@@ -149,3 +149,34 @@ def get_borrowing_history(member_id):
         })
     cursor.close()
     return borrowing_history
+
+def get_book_borrowing_history(book_id):
+    """Fetch borrowing history for a specific book."""
+    cursor = mysql.connection.cursor()
+    query = """
+        SELECT 
+            Lending.LendID,
+            Members.Name AS MemberName,
+            Lending.IssueDate,
+            Lending.DueDate,
+            Lending.ReturnDate
+        FROM Lending
+        JOIN Members ON Lending.MemberID = Members.MemberID
+        WHERE BookID = %s
+        ORDER BY Lending.IssueDate DESC
+    """
+    cursor.execute(query, (book_id,))
+    records = cursor.fetchall()
+
+    # Convert records to a list of dictionaries
+    borrowing_history = []
+    for record in records:
+        borrowing_history.append({
+            "LendID": record[0],
+            "MemberName": record[1],
+            "IssueDate": record[2].strftime("%Y-%m-%d") if record[2] else None,
+            "DueDate": record[3].strftime("%Y-%m-%d") if record[3] else None,
+            "ReturnDate": record[4].strftime("%Y-%m-%d") if record[4] else None
+        })
+    cursor.close()
+    return borrowing_history

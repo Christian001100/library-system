@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request
 from models.books import add_book, get_books, advanced_search_books, update_book, delete_book
+from models.lending import get_book_borrowing_history
+
 
 
 
@@ -82,5 +84,14 @@ def delete_book_route(book_id):
         if success:
             return jsonify({"message": "Book deleted successfully"}), 200
         return jsonify({"error": "Failed to delete book"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@book_routes.route('/books/history/<int:book_id>', methods=['GET'])
+def get_book_history(book_id):
+    """Get borrowing history for a specific book"""
+    try:
+        history = get_book_borrowing_history(book_id)
+        return jsonify(history), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

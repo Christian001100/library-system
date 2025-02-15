@@ -33,6 +33,10 @@ class BookScreen:
         tk.Button(button_frame, text="Add Book", command=self.add_book).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Update Book", command=self.update_book).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Delete Book", command=self.delete_book).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="View History", command=self.view_history).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="Refresh", command=self.load_books).pack(side=tk.LEFT, padx=5)
+
+
 
         # Load initial book data
         self.load_books()
@@ -147,3 +151,44 @@ class BookScreen:
                 form.destroy()
         else:
             messagebox.showwarning("Input Error", "All fields are required.")
+
+    def view_history(self):
+        """Show borrowing history for selected book"""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Please select a book to view its history.")
+            return
+            
+        book_id = self.tree.item(selected, "values")[0]
+        
+        try:
+            response = requests.get(f"http://127.0.0.1:5000/api/books/history/{book_id}")
+            if response.status_code == 200:
+                history = response.json()
+                self.show_history_window(history)
+            else:
+                messagebox.showerror("Error", "Failed to fetch book history.")
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Failed to connect to the server: {e}")
+
+    def show_history_window(self, history):
+        """Create a window to display borrowing history"""
+        history_window = tk.Toplevel(self.parent)
+        history_window.title("Book Borrowing History")
+        
+        # Create Treeview
+        tree = ttk.Treeview(history_window, columns=("Member", "Issue Date", "Due Date", "Return Date"), show="headings")
+        tree.heading("Member", text="Member")
+        tree.heading("Issue Date", text="Issue Date")
+        tree.heading("Due Date", text="Due Date")
+        tree.heading("Return Date", text="Return Date")
+        tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Insert history records
+        for record in history:
+            tree.insert("", tk.END, values=(
+                record["MemberName"],
+                record["IssueDate"],
+                record["DueDate"],
+                record["ReturnDate"]
+            ))
