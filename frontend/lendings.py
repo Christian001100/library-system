@@ -101,15 +101,21 @@ class LendingsScreen:
                 self.book_dropdown['values'] = [f"{b['title']} (ID: {b['id']})" for b in books_response['data']]
             
             if members_response and isinstance(members_response, list):
-                self.member_dropdown['values'] = [f"{m['name']} (ID: {m['id']})" for m in members_response]
+                self.member_dropdown['values'] = [f"{m[1]} (ID: {m[0]})" for m in members_response]
             elif members_response and 'data' in members_response:
-                self.member_dropdown['values'] = [f"{m['name']} (ID: {m['id']})" for m in members_response['data']]
-            
+                self.member_dropdown['values'] = [f"{m[1]} (ID: {m[0]})" for m in members_response['data']]
+
             # Load active loans
             self.refresh_loans()
-            
+            # Load active loans for return dropdown
+            loans = self.fetch_data("http://localhost:5000/api/lending/all")
+            if loans and isinstance(loans, list):
+                self.loan_dropdown['values'] = [f"{loan[1]} (ID: {loan[0]})" for loan in loans]
+            elif loans and 'data' in loans:
+                self.loan_dropdown['values'] = [f"{loan[1]} (ID: {loan[0]})" for loan in loans['data']]
             # Load overdue books
             self.refresh_overdue()
+
                 
         except Exception as e:
             logger.error(f"Failed to load data: {str(e)}")
@@ -140,21 +146,22 @@ class LendingsScreen:
             if loans and isinstance(loans, list):
                 for loan in loans:
                     self.loans_tree.insert("", "end", values=(
-                        loan['id'],
-                        loan['book_title'],
-                        loan['member_name'],
-                        loan['issue_date'],
-                        loan['due_date']
+                        loan[0],        # id
+                        loan[1],        # book_title
+                        loan[2],        # member_name
+                        loan[3],        # issue_date
+                        loan[4]         # due_date
                     ))
             elif loans and 'data' in loans:
                 for loan in loans['data']:
                     self.loans_tree.insert("", "end", values=(
-                        loan['id'],
-                        loan['book_title'],
-                        loan['member_name'],
-                        loan['issue_date'],
-                        loan['due_date']
+                        loan[0],        # id
+                        loan[1],        # book_title
+                        loan[2],        # member_name
+                        loan[3],        # issue_date
+                        loan[4]         # due_date
                     ))
+
         except Exception as e:
             logger.error(f"Failed to refresh loans: {str(e)}")
             messagebox.showerror("Error", f"Failed to refresh loans: {str(e)}")
@@ -173,24 +180,25 @@ class LendingsScreen:
             
             if overdue and isinstance(overdue, list):
                 for book in overdue:
-                    days_overdue = (datetime.now() - datetime.strptime(book['due_date'], "%Y-%m-%d")).days
+                    days_overdue = (datetime.now() - datetime.strptime(book[3], "%a, %d %b %Y %H:%M:%S %Z")).days
                     self.overdue_tree.insert("", "end", values=(
-                        book['id'],
-                        book['book_title'],
-                        book['member_name'],
-                        book['due_date'],
+                        book[0],        # id
+                        book[1],        # book_title
+                        book[2],        # member_name
+                        book[3],        # due_date
                         days_overdue
                     ))
             elif overdue and 'data' in overdue:
                 for book in overdue['data']:
-                    days_overdue = (datetime.now() - datetime.strptime(book['due_date'], "%Y-%m-%d")).days
+                    days_overdue = (datetime.now() - datetime.strptime(book[3], "%a, %d %b %Y %H:%M:%S %Z")).days
                     self.overdue_tree.insert("", "end", values=(
-                        book['id'],
-                        book['book_title'],
-                        book['member_name'],
-                        book['due_date'],
+                        book[0],        # id
+                        book[1],        # book_title
+                        book[2],        # member_name
+                        book[3],        # due_date
                         days_overdue
                     ))
+
         except Exception as e:
             logger.error(f"Failed to refresh overdue books: {str(e)}")
             messagebox.showerror("Error", f"Failed to refresh overdue books: {str(e)}")
