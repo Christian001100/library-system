@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import requests
+from barcode import Code128
+from barcode.writer import ImageWriter
+
 
 class BookScreen:
     def __init__(self, parent):
@@ -34,9 +37,8 @@ class BookScreen:
         tk.Button(button_frame, text="Update Book", command=self.update_book).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Delete Book", command=self.delete_book).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="View History", command=self.view_history).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="Scan Barcode", command=self.scan_barcode).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Refresh", command=self.load_books).pack(side=tk.LEFT, padx=5)
-
-
 
         # Load initial book data
         self.load_books()
@@ -49,7 +51,8 @@ class BookScreen:
                 books = response.json()
                 self.tree.delete(*self.tree.get_children())  # Clear existing data
                 for book in books:
-                    self.tree.insert("", tk.END, values=(book['id'], book['title'], book['author'], book['isbn'], book['availability']))
+                    self.tree.insert("", tk.END, values=(book['id'], book['title'], book['author'], book['isbn'], book['copies']))
+
             else:
                 messagebox.showerror("Error", "Failed to fetch books.")
         except requests.exceptions.RequestException as e:
@@ -117,18 +120,23 @@ class BookScreen:
         isbn_entry = tk.Entry(form)
         isbn_entry.grid(row=2, column=1, padx=10, pady=5)
 
+        tk.Label(form, text="Copies Available:").grid(row=3, column=0, padx=10, pady=5)
+        copies_entry = tk.Entry(form)
+        copies_entry.grid(row=3, column=1, padx=10, pady=5)
+
         if book:
-            title_entry.insert(0, book[1])
-            author_entry.insert(0, book[2])
-            isbn_entry.insert(0, book[3])
+            title_entry.insert(0, book[1])  # Populate title field
+            author_entry.insert(0, book[2])  # Populate author field
+            isbn_entry.insert(0, book[3])    # Populate ISBN field
+            copies_entry.insert(0, book[4])  # Populate copies field
 
-        tk.Button(form, text="Save", command=lambda: save_command(form, book[0] if book else None, title_entry, author_entry, isbn_entry)).grid(row=3, column=1, pady=10)
+        tk.Button(form, text="Save", command=lambda: save_command(form, book[0] if book else None, title_entry, author_entry, isbn_entry, copies_entry)).grid(row=4, column=1, pady=10)
 
-    def save_book(self, form, _, title_entry, author_entry, isbn_entry):
+    def save_book(self, form, _, title_entry, author_entry, isbn_entry, copies_entry):
         """Save new book"""
-        title, author, isbn = title_entry.get(), author_entry.get(), isbn_entry.get()
-        if title and author and isbn:
-            response = requests.post("http://127.0.0.1:5000/api/books/create", json={"title": title, "author": author, "isbn": isbn})
+        title, author, isbn, copies = title_entry.get(), author_entry.get(), isbn_entry.get(), copies_entry.get()
+        if title and author and isbn and copies:
+            response = requests.post("http://127.0.0.1:5000/api/books/create", json={"title": title, "author": author, "isbn": isbn, "availability": copies, "copies": copies})
             if response.status_code == 201:
                 messagebox.showinfo("Success", "Book added successfully!")
                 self.load_books()
@@ -136,19 +144,22 @@ class BookScreen:
             else:
                 error_msg = response.json().get('message', 'Failed to add book')
                 messagebox.showerror("Error", error_msg)
-
         else:
             messagebox.showwarning("Input Error", "All fields are required.")
 
-    def save_changes(self, form, book_id, title_entry, author_entry, _):
+    def save_changes(self, form, book_id, title_entry, author_entry, isbn_entry, copies_entry):
         """Save updated book details"""
-        title, author = title_entry.get(), author_entry.get()
-        if title and author:
-            response = requests.put(f"http://127.0.0.1:5000/api/books/update/{book_id}", json={"title": title, "author": author})
+        title, author, isbn, copies = title_entry.get(), author_entry.get(), isbn_entry.get(), copies_entry.get()
+
+        if title and author and copies and copies.isdigit():
+            response = requests.put(f"http://127.0.0.1:5000/api/books/update/{book_id}", json={"title": title, "author": author, "isbn": isbn, "copies": copies})
+
             if response.status_code == 200:
                 messagebox.showinfo("Success", "Book updated successfully!")
                 self.load_books()
                 form.destroy()
+            else:
+                messagebox.showerror("Error", "Failed to update book.")
         else:
             messagebox.showwarning("Input Error", "All fields are required.")
 
@@ -170,6 +181,41 @@ class BookScreen:
                 messagebox.showerror("Error", "Failed to fetch book history.")
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Failed to connect to the server: {e}")
+
+    def scan_barcode(self):
+        """Handle barcode scanning and fetch book details"""
+        # Create a popup window for barcode input
+        popup = tk.Toplevel(self.parent)
+        popup.title("Scan Barcode")
+        
+        tk.Label(popup, text="Enter ISBN:").pack(pady=5)
+        isbn_entry = tk.Entry(popup)
+        isbn_entry.pack(pady=5)
+        
+        def on_submit():
+            isbn = isbn_entry.get()
+            if isbn:
+                try:
+                    response = requests.get(f"http://127.0.0.1:5000/api/books/isbn/{isbn}")
+                    if response.status_code == 200:
+                        book = response.json()
+                        self.tree.delete(*self.tree.get_children())
+                        self.tree.insert("", tk.END, values=(
+                            book['id'],
+                            book['title'],
+                            book['author'],
+                            book['isbn'],
+                            book['availability']
+                        ))
+                        popup.destroy()
+                    else:
+                        messagebox.showerror("Error", "Book not found")
+                except requests.exceptions.RequestException as e:
+                    messagebox.showerror("Error", f"Failed to connect to server: {e}")
+            else:
+                messagebox.showwarning("Input Error", "Please enter an ISBN")
+        
+        tk.Button(popup, text="Submit", command=on_submit).pack(pady=10)
 
     def show_history_window(self, history):
         """Create a window to display borrowing history"""

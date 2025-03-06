@@ -1,9 +1,12 @@
 from flask import Blueprint, jsonify, request
-from models.books import add_book, get_books, advanced_search_books, update_book, delete_book
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+from models.books import add_book, get_books, advanced_search_books, update_book, delete_book, get_book_by_isbn
 from models.lending import get_book_borrowing_history
-
-
-
 
 book_routes = Blueprint('books', __name__)
 
@@ -12,10 +15,20 @@ def fetch_books():
     books = get_books()
     return jsonify(books)
 
+@book_routes.route('/books/isbn/<string:isbn>', methods=['GET'])
+def get_book_by_isbn_route(isbn):
+    """Fetch a book by its ISBN (barcode)"""
+    try:
+        book = get_book_by_isbn(isbn)
+        if book:
+            return jsonify(book), 200
+        return jsonify({"error": "Book not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @book_routes.route('/books/create', methods=['POST'])
 def create_book():
     data = request.json
-    # Use get() with default values for optional fields
     add_book(
         data.get('title'),
         data.get('author'),
@@ -24,7 +37,6 @@ def create_book():
         data.get('copies', 1)
     )
     return jsonify({"message": "Book added successfully!"}), 201
-
 
 @book_routes.route('/books/search', methods=['GET'])
 def search_books():
@@ -52,12 +64,13 @@ def search_books():
             "popularity": book[6]
         })
 
-
     return jsonify(book_list)
 
 @book_routes.route('/books/update/<int:book_id>', methods=['PUT'])
 def update_book_route(book_id):
-    data = request.json
+    data = request.json  # Ensure data is assigned first
+    logger.info(f"Updating book ID {book_id} with data: {data}")  # Log the incoming request data
+
     if not data:
         return jsonify({"error": "No data provided"}), 400
         
@@ -74,6 +87,7 @@ def update_book_route(book_id):
             return jsonify({"message": "Book updated successfully"}), 200
         return jsonify({"error": "No fields to update"}), 400
     except Exception as e:
+        logger.error(f"Error updating book ID {book_id}: {str(e)}")  # Log the error
         return jsonify({"error": str(e)}), 500
 
 @book_routes.route('/books/delete/<int:book_id>', methods=['DELETE'])

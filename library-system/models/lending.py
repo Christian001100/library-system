@@ -1,5 +1,11 @@
 from db_config import mysql
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import logging
+
+# Configure logger
+logger = logging.getLogger(__name__)
+
+
 
 # Lend Book Function (borrow book logic)
 def lend_book(book_id, member_id, is_class_monitor=False):
@@ -59,7 +65,22 @@ def return_book(lend_id):
     if result:
         book_id, due_date = result
         return_date = datetime.now()
-        overdue_days = (return_date - due_date).days
+        
+        # Ensure both dates are datetime objects
+        if isinstance(due_date, date):
+            due_date = datetime.combine(due_date, datetime.min.time())
+        if isinstance(return_date, date):
+            return_date = datetime.combine(return_date, datetime.min.time())
+
+            
+        # Calculate overdue days safely
+        try:
+            overdue_days = (return_date - due_date).days
+        except TypeError as e:
+            logger.error(f"Date calculation error: {e}")
+            overdue_days = 0
+
+
         
         # Calculate fine for late return
         fine = 0
@@ -84,8 +105,28 @@ def return_book(lend_id):
         return {"message": "This lending record does not exist."}
 
 # Fetch Lending Records (fetch details of lent books, including members and due dates)
-def get_lending_records():
-    """Fetch all lending records, including member and book details."""
+def get_active_loans():
+    """Fetch all active lending records (not yet returned)."""
+    cursor = mysql.connection.cursor()
+    query = """
+        SELECT 
+            Lending.LendID,
+            Books.Title AS BookTitle,
+            Members.Name AS MemberName,
+            Lending.IssueDate,
+            Lending.DueDate
+        FROM Lending
+        JOIN Books ON Lending.BookID = Books.BookID
+        JOIN Members ON Lending.MemberID = Members.MemberID
+        WHERE Lending.ReturnDate IS NULL
+    """
+    cursor.execute(query)
+    active_loans = cursor.fetchall()
+    cursor.close()
+    return active_loans
+
+def get_returned_loans():
+    """Fetch all returned lending records."""
     cursor = mysql.connection.cursor()
     query = """
         SELECT 
@@ -98,11 +139,13 @@ def get_lending_records():
         FROM Lending
         JOIN Books ON Lending.BookID = Books.BookID
         JOIN Members ON Lending.MemberID = Members.MemberID
+        WHERE Lending.ReturnDate IS NOT NULL
     """
     cursor.execute(query)
-    lending_records = cursor.fetchall()
+    returned_loans = cursor.fetchall()
     cursor.close()
-    return lending_records
+    return returned_loans
+
 
 # Get Overdue Books (fetch lending records where books are overdue)
 def get_overdue_books():
@@ -125,7 +168,27 @@ def get_overdue_books():
     cursor.close()
     return overdue_books
 
-# Get Borrowing History (fetch borrowing history for a specific member)
+# Get Lending Records (fetch all lending records)
+def get_lending_records():
+    """Fetch all lending records including book and member details."""
+    cursor = mysql.connection.cursor()
+    query = """
+        SELECT 
+            Lending.LendID,
+            Books.Title AS BookTitle,
+            Members.Name AS MemberName,
+            Lending.IssueDate,
+            Lending.DueDate,
+            Lending.ReturnDate
+        FROM Lending
+        JOIN Books ON Lending.BookID = Books.BookID
+        JOIN Members ON Lending.MemberID = Members.MemberID
+    """
+    cursor.execute(query)
+    lending_records = cursor.fetchall()
+    cursor.close()
+    return lending_records
+
 def get_borrowing_history(member_id):
     """Fetch borrowing history for a specific member."""
     cursor = mysql.connection.cursor()

@@ -5,7 +5,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 def add_book(title, author, genre, isbn, copies):
     try:
         cursor = mysql.connection.cursor()
@@ -22,8 +21,36 @@ def add_book(title, author, genre, isbn, copies):
         if 'cursor' in locals():
             cursor.close()
 
+def get_book_by_id(book_id):
+    """Fetch a single book by its ID"""
+    try:
+        cursor = mysql.connection.cursor()
+        query = "SELECT * FROM Books WHERE BookID = %s"
+        cursor.execute(query, (book_id,))
+        book = cursor.fetchone()
+        cursor.close()
+        
+        if book:
+            return book  # Return the book details as a tuple
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching book by ID {book_id}: {str(e)}")
+        return None
 
 def update_book(book_id, title=None, author=None, genre=None, isbn=None, copies=None):
+    """Update book information in the database"""
+    # Fetch existing book details to compare
+    existing_book = get_book_by_id(book_id)
+    if existing_book:
+        existing_title, existing_author, existing_genre, existing_isbn, existing_copies, *_ = existing_book
+
+        # Check if new values are different from existing values
+        if (title == existing_title and author == existing_author and 
+            genre == existing_genre and isbn == existing_isbn and 
+            copies == existing_copies):
+            logger.info(f"No changes detected for book ID {book_id}. Update skipped.")
+            return True
+
     """Update book information in the database"""
     try:
         cursor = mysql.connection.cursor()
@@ -47,7 +74,10 @@ def update_book(book_id, title=None, author=None, genre=None, isbn=None, copies=
         if copies is not None:
             updates.append("Copies = %s")
             params.append(copies)
-            
+
+        # Log the parameters being used for the update
+        logger.info(f"Updating book ID {book_id} with parameters: {params}")
+
         if not updates:
             logger.warning("No fields provided for update")
             return False
@@ -66,8 +96,6 @@ def update_book(book_id, title=None, author=None, genre=None, isbn=None, copies=
     finally:
         if 'cursor' in locals():
             cursor.close()
-
-
 
 def get_books():
     cursor = mysql.connection.cursor()
@@ -91,6 +119,23 @@ def get_books():
         })
     return book_list
 
+def get_book_by_isbn(isbn):
+    """Fetch a single book by its ISBN"""
+    try:
+        cursor = mysql.connection.cursor()
+        query = "SELECT * FROM Books WHERE ISBN = %s"
+        cursor.execute(query, (isbn,))
+        book = cursor.fetchone()
+        cursor.close()
+        
+        if book:
+            return book  # Return the book details as a tuple
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching book by ISBN {isbn}: {str(e)}")
+        return None
+
+
 def delete_book(book_id):
     """Delete a book from the database by its ID"""
     try:
@@ -107,7 +152,6 @@ def delete_book(book_id):
     finally:
         if 'cursor' in locals():
             cursor.close()
-
 
 def advanced_search_books(title=None, author=None, isbn=None, genre=None, available_only=False, sort_by_popularity=False):
     """
