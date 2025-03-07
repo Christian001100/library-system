@@ -27,6 +27,8 @@ def fetch_returned_loans():
 @lending_routes.route('/lending/create', methods=['POST'])
 def create_lending():
     """Lend a book to a member, setting the due date to today's date (CURDATE)."""
+    print("Received request to lend a book.")  # Log the request for debugging
+
     data = request.json
     book_id = data.get('book_id')
     member_id = data.get('member_id')
@@ -36,6 +38,8 @@ def create_lending():
 
     try:
         # Check if the MemberID exists in the Members table
+        print(f"Checking if member ID {member_id} exists.")  # Log for debugging
+
         cursor = mysql.connection.cursor()
         cursor.execute("SELECT MemberID FROM Members WHERE MemberID = %s", (member_id,))
         member = cursor.fetchone()
@@ -44,12 +48,17 @@ def create_lending():
             return jsonify({"message": "Member not found."}), 404
 
         # Check if the book is available
-        cursor.execute("SELECT copies FROM Books WHERE id = %s", (book_id,))
+        print(f"Checking availability for book ID {book_id}.")  # Log for debugging
+
+        cursor.execute("SELECT copies FROM Books WHERE BookID = %s", (book_id,))
+
         book = cursor.fetchone()
         if not book or book[0] <= 0:
             return jsonify({"message": "Book is not available."}), 400
 
         # Insert lending record with CURDATE() for due date
+        print(f"Inserting lending record for book ID {book_id} and member ID {member_id}.")  # Log for debugging
+
         query = """
             INSERT INTO Lending (BookID, MemberID, DueDate)
             VALUES (%s, %s, CURDATE())
@@ -57,7 +66,10 @@ def create_lending():
         cursor.execute(query, (book_id, member_id))
         
         # Decrease the number of available copies
-        cursor.execute("UPDATE Books SET copies = copies - 1 WHERE id = %s", (book_id,))
+        print(f"Decreasing available copies for book ID {book_id}.")  # Log for debugging
+
+        cursor.execute("UPDATE Books SET copies = copies - 1 WHERE BookID = %s", (book_id,))
+
         mysql.connection.commit()
         cursor.close()
         
@@ -77,7 +89,8 @@ def return_lending(lend_id):
         
         # Increase the number of available copies
         cursor = mysql.connection.cursor()
-        cursor.execute("UPDATE Books SET copies = copies + 1 WHERE id = (SELECT BookID FROM Lending WHERE id = %s)", (lend_id,))
+        cursor.execute("UPDATE Books SET copies = copies + 1 WHERE BookID = (SELECT BookID FROM Lending WHERE LendID = %s)", (lend_id,))
+
         mysql.connection.commit()
         cursor.close()
         
