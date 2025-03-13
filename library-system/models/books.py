@@ -9,18 +9,18 @@ def add_book(title, author, genre, isbn, copies):
     try:
         cursor = mysql.connection.cursor()
         query = "INSERT INTO Books (Title, Author, Genre, ISBN, Copies) VALUES (%s, %s, %s, %s, %s)"
+        logger.info(f"Executing query: {query} with parameters: {(title, author, genre, isbn, copies)}")
         cursor.execute(query, (title, author, genre, isbn, copies))
+
         mysql.connection.commit()
-        logger.info(f"Successfully added book: {title} by {author}")
+        logger.info(f"Successfully added book: {title} by {author} with ISBN: {isbn} and Copies: {copies}")
         return True
     except Exception as e:
         mysql.connection.rollback()
-        logger.error(f"Error adding book: {str(e)}")
+        logger.error(f"Error adding book: {str(e)} - Check if the ISBN is unique and all fields are valid.")
         return False
     finally:
-        if 'cursor' in locals():
-            cursor.close()
-
+        cursor.close()
 def get_book_by_id(book_id):
     """Fetch a single book by its ID"""
     try:
@@ -204,5 +204,50 @@ def advanced_search_books(title=None, author=None, isbn=None, genre=None, availa
     cursor.execute(query, tuple(params))
     books = cursor.fetchall()
     cursor.close()
-    
     return books
+
+def add_book_with_barcodes(title, author, genre, isbn, copies):
+    cursor = mysql.connection.cursor()
+    try:
+        # Insert the book
+        query = "INSERT INTO Books (Title, Author, Genre, ISBN, Copies) VALUES (%s, %s, %s, %s, %s)"
+        logger.info(f"Executing query: {query} with parameters: {(title, author, genre, isbn, copies)}")
+        cursor.execute(query, (title, author, genre, isbn, copies))
+        book_id = cursor.lastrowid
+        logger.info(f"Inserted book with ID: {book_id}")
+
+        # Generate unique barcodes
+        for i in range(1, copies + 1):
+            barcode = f"#_{title.replace(' ', '')}_{book_id}_{i}"  # Ensure unique barcode
+            logger.info(f"Generated barcode: {barcode} for book ID: {book_id}")
+            
+            # Insert barcode into the barcodes table
+            query = "INSERT INTO barcodes (BookID, Barcode) VALUES (%s, %s)"
+            cursor.execute(query, (book_id, barcode))
+            logger.info(f"Inserted barcode: {barcode} for book ID: {book_id}")
+
+        mysql.connection.commit()
+        logger.info(f"Successfully added {copies} copies of '{title}' with barcodes for ISBN: {isbn}.")
+        return True  # Indicate success
+    except Exception as e:
+        mysql.connection.rollback()  # Rollback the transaction on error
+        logger.error(f"Error adding book with barcodes: {str(e)}")
+        return False  # Indicate failure
+    finally:
+        cursor.close()
+def get_barcodes_by_book_id(book_id):
+    """Fetch barcodes for a specific book by its ID"""
+    cursor = mysql.connection.cursor()
+    try:
+        query = "SELECT Barcode FROM Barcodes WHERE BookID = %s"
+        cursor.execute(query, (book_id,))
+        barcodes = cursor.fetchall()
+        
+        # Convert tuples to a list of barcodes
+        barcode_list = [barcode[0] for barcode in barcodes]
+        return barcode_list
+    except Exception as e:
+        logger.error(f"Error fetching barcodes for book ID {book_id}: {str(e)}")
+        return []
+    finally:
+        cursor.close()

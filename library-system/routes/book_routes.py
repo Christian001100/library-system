@@ -5,7 +5,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from models.books import add_book, get_books, advanced_search_books, update_book, delete_book, get_book_by_isbn
+from models.books import add_book, get_books, advanced_search_books, update_book, delete_book, get_book_by_isbn,  add_book_with_barcodes, get_barcodes_by_book_id
 from models.lending import get_book_borrowing_history
 
 book_routes = Blueprint('books', __name__)
@@ -29,14 +29,43 @@ def get_book_by_isbn_route(isbn):
 @book_routes.route('/books/create', methods=['POST'])
 def create_book():
     data = request.json
-    add_book(
-        data.get('title'),
-        data.get('author'),
-        data.get('genre', 'Unknown'),
-        data.get('isbn'),
-        data.get('copies', 1)
-    )
-    return jsonify({"message": "Book added successfully!"}), 201
+    logger.info(f"Received data: {data}")  # Log the incoming request data
+
+    # Validate required fields
+    required_fields = ["title", "author", "isbn", "copies"]
+    for field in required_fields:
+        if field not in data:
+            logger.error(f"Missing required field: {field}")
+            return jsonify({"error": f"Missing required field: {field}"}), 400
+
+    generate_barcode = data.get('generate_barcode', False)
+    
+    try:
+        if generate_barcode:
+            success = add_book_with_barcodes(
+                data.get('title'),
+                data.get('author'),
+                data.get('genre', 'Unknown'),
+                data.get('isbn'),
+                data.get('copies', 1)
+            )
+        else:
+            success = add_book(
+                data.get('title'),
+                data.get('author'),
+                data.get('genre', 'Unknown'),
+                data.get('isbn'),
+                data.get('copies', 1)
+            )
+
+        if success:
+            return jsonify({"message": "Book added successfully!"}), 201
+        else:
+            return jsonify({"error": "Failed to add book"}), 500
+
+    except Exception as e:
+        logger.error(f"Error in create_book route: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @book_routes.route('/books/search', methods=['GET'])
 def search_books():
@@ -107,5 +136,14 @@ def get_book_history(book_id):
     try:
         history = get_book_borrowing_history(book_id)
         return jsonify(history), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@book_routes.route('/books/barcodes/<int:book_id>', methods=['GET'])
+def get_barcodes_by_book_id_route(book_id):
+    """Fetch barcodes for a specific book by its ID"""
+    try:
+        barcodes = get_barcodes_by_book_id(book_id)
+        return jsonify(barcodes), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
